@@ -7,6 +7,9 @@
 #include <string>
 #include<iostream>
 #include<fstream>
+#include <cassert>
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
 float posCameraX = 0.0, posCameraY = 2.0, posCameraZ = 5.0; // Posição inicial da câmera
 GLfloat luz_pontual[] = { -5.0, 5.0, -5.0, 1.0 }; // Posição inicial do sol
 
@@ -68,7 +71,42 @@ void desenhar_nuvem(float x, float y, float z, float raio) {
 }
 
 
+tinyobj::attrib_t attrib;
+std::vector<tinyobj::shape_t> g_shapes;
+
+
+bool carregarModelo(const std::string& inputfile) {
+    std::vector<tinyobj::material_t> materials;
+    std::string err;
+
+    // Carrega o modelo
+    bool ret = tinyobj::LoadObj(&attrib, &g_shapes, &materials, &err, inputfile.c_str(), NULL, true);
     
+    if (!err.empty()) {
+        std::cerr << err << std::endl;
+    }
+
+    return ret;
+}
+    
+void desenharModelo() {
+    glEnable(GL_COLOR_MATERIAL);
+    for (size_t s = 0; s < g_shapes.size(); s++) {
+        glBegin(GL_TRIANGLES);
+        for (size_t f = 0; f < g_shapes[s].mesh.indices.size() / 3; f++) {
+            for (size_t v = 0; v < 3; v++) {
+                tinyobj::index_t idx = g_shapes[s].mesh.indices[3*f+v];
+
+                float vx = attrib.vertices[3*idx.vertex_index+0];
+                float vy = attrib.vertices[3*idx.vertex_index+1];
+                float vz = attrib.vertices[3*idx.vertex_index+2];
+                glVertex3f(vx, vy, vz);
+            }
+        }
+        glEnd();
+    }
+    glDisable(GL_COLOR_MATERIAL);
+}
 
 
 
@@ -114,7 +152,8 @@ void display(void) {
     desenhar_nuvem(-4.0, 3.0, 0.5, 0.7);   
     desenhar_nuvem(1.0, 1.0, 3.0, 0.4);    
     desenhar_nuvem(5.0, 2.5, 1.5, 0.8);    
-    desenhar_nuvem(-5.0, 3.0, 2.0, 0.6);   
+    desenhar_nuvem(-5.0, 3.0, 2.0, 0.6);
+    desenharModelo();   
     glutSwapBuffers();
 }
 
@@ -148,6 +187,7 @@ void specialKeys(int key, int x, int y) {
 }
 
 int main(int argc, char** argv) {
+    carregarModelo("001bd4b5.obj");
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(500, 500);
