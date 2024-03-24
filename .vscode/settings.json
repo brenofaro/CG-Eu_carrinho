@@ -1,6 +1,6 @@
 {
 "code-runner.executorMap": {
-    "cpp": "cd $dir && g++ $fileName ModelLoader.cpp -o $fileNameWithoutExt -Llib -lopengl32 -lglu32 -lfreeglut && $dir$fileNameWithoutExt",
+    "cpp": "cd $dir && g++ $fileName -o $fileNameWithoutExt -Llib -lopengl32 -lglu32 -lfreeglut && $dir$fileNameWithoutExt",
 },
 "files.associations": {
     "array": "cpp",
