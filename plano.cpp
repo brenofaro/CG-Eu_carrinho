@@ -10,7 +10,11 @@
 #include <cassert>
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
-float posCameraX = 0.0, posCameraY = 2.0, posCameraZ = 5.0; // Posição inicial da câmera
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+const double PI = 3.14159265358979323846;
+float posCameraX = -0.141169, posCameraY = 5.2, posCameraZ = -5.80667; // Posição inicial da câmera
 GLfloat luz_pontual[] = { -5.0, 5.0, -5.0, 1.0 }; // Posição inicial do sol
 
 
@@ -71,6 +75,36 @@ void desenhar_nuvem(float x, float y, float z, float raio) {
 }
 
 
+// Textura
+GLuint texturaID; 
+GLuint carregarTextura(const char* arquivo) {
+    GLuint texturaID;
+    glGenTextures(1, &texturaID);
+    glBindTexture(GL_TEXTURE_2D, texturaID);
+
+    // Configura parâmetros da textura
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    int largura, altura, nrCanais;
+    unsigned char* data = stbi_load(arquivo, &largura, &altura, &nrCanais, 0);
+    if (data) {
+        GLenum formato = GL_RGB;
+        if (nrCanais == 4)
+            formato = GL_RGBA;
+
+        glTexImage2D(GL_TEXTURE_2D, 0, formato, largura, altura, 0, formato, GL_UNSIGNED_BYTE, data);
+        
+    } else {
+        std::cerr << "Falha ao carregar a textura" << std::endl;
+    }
+    stbi_image_free(data);
+
+    return texturaID;
+}
+
 tinyobj::attrib_t attrib;
 std::vector<tinyobj::shape_t> g_shapes;
 
@@ -88,15 +122,33 @@ bool carregarModelo(const std::string& inputfile) {
 
     return ret;
 }
-    
+
 void desenharModelo() {
-    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_TEXTURE_2D); // Habilita o uso de texturas
+    glBindTexture(GL_TEXTURE_2D, texturaID); // Vincula a textura carregada
+    glEnable(GL_COLOR_MATERIAL); // Permite que o material do objeto receba cor
+    
+    glPushMatrix();
+    glScalef(0.1f, 0.1f, 0.1f); // Escala o modelo (ajuste conforme necessário)
+    glColor3f(1.0f, 1.0f, 1.0f); // Configura a cor base para a textura
+
+    // Itera sobre cada shape no modelo
     for (size_t s = 0; s < g_shapes.size(); s++) {
         glBegin(GL_TRIANGLES);
+        // Itera sobre cada face
         for (size_t f = 0; f < g_shapes[s].mesh.indices.size() / 3; f++) {
+            // Itera sobre cada vértice
             for (size_t v = 0; v < 3; v++) {
                 tinyobj::index_t idx = g_shapes[s].mesh.indices[3*f+v];
+                
+                // Aplica coordenadas de textura se disponíveis
+                if (attrib.texcoords.size() > 2 * idx.texcoord_index + 1) {
+                    float tx = attrib.texcoords[2*idx.texcoord_index+0];
+                    float ty = attrib.texcoords[2*idx.texcoord_index+1];
+                    glTexCoord2f(tx, 1-ty); // OpenGL inverte a direção Y da textura
+                }
 
+                // Extrai e aplica a posição dos vértices
                 float vx = attrib.vertices[3*idx.vertex_index+0];
                 float vy = attrib.vertices[3*idx.vertex_index+1];
                 float vz = attrib.vertices[3*idx.vertex_index+2];
@@ -105,13 +157,20 @@ void desenharModelo() {
         }
         glEnd();
     }
+
+    glPopMatrix();
     glDisable(GL_COLOR_MATERIAL);
+    glBindTexture(GL_TEXTURE_2D, 0); // Desvincula a textura
+    glDisable(GL_TEXTURE_2D); // Desabilita o uso de texturas
 }
 
 
 
 void init(void) {
     glClearColor(0.7, 0.9, 1.0, 1.0); // Cor de fundo azul claro
+
+    // Carrega a textura
+    texturaID = carregarTextura("tesmmachine.png");
 
     // Configura iluminação
     glEnable(GL_LIGHTING);
@@ -129,6 +188,14 @@ void init(void) {
     glEnable(GL_DEPTH_TEST);
     glShadeModel(GL_SMOOTH);
 }
+// Variaveis debug camera
+    float upX = 0.0;
+    float upY = 1;
+    float upZ = 0.0;
+    float cameraX = 0.0;
+    float cameraY = 0.9;
+    float cameraZ = 1.2;
+
 
 void display(void) {
     // Limpeza do z-buffer deve ser feita a cada desenho da tela
@@ -138,7 +205,18 @@ void display(void) {
     glLoadIdentity();
 
     // Define a posição da câmera
-    gluLookAt(posCameraX, posCameraY, posCameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+    gluLookAt(posCameraX, posCameraY, posCameraZ, cameraX, cameraY, cameraZ, upX, upY, upZ);
+
+    // Debug
+    std::cout << "posCameraX: " << posCameraX << " posCameraY: " << posCameraY << " posCameraZ: " << posCameraZ << std::endl;
+    std::cout << "cameraX: " << cameraX << " cameraY: " << cameraY << " cameraZ: " << cameraZ << std::endl;
+    std::cout << "upX: " << upX << " upY: " << upY << " upZ: " << upZ << std::endl;
+
+    // Parametros look at
+    // eyeX, eyeY, eyeZ: posição da câmera
+    // centerX, centerY, centerZ: ponto para onde a câmera está olhando
+    // upX, upY, upZ: vetor que indica a direção para cima
+
 
     // Desenha o sol
     desenhar_sol();
@@ -147,12 +225,14 @@ void display(void) {
     desenhar_plano();
 
     // Desenha nuvens
-    desenhar_nuvem(-2.0, 2.0, 1.0, 0.5);  
-    desenhar_nuvem(3.0, 2.5, 2.0, 0.6);    
-    desenhar_nuvem(-4.0, 3.0, 0.5, 0.7);   
-    desenhar_nuvem(1.0, 1.0, 3.0, 0.4);    
-    desenhar_nuvem(5.0, 2.5, 1.5, 0.8);    
-    desenhar_nuvem(-5.0, 3.0, 2.0, 0.6);
+    // desenhar_nuvem(-2.0, 2.0, 1.0, 0.5);  
+    // desenhar_nuvem(3.0, 2.5, 2.0, 0.6);    
+    // desenhar_nuvem(-4.0, 3.0, 0.5, 0.7);   
+    // desenhar_nuvem(1.0, 1.0, 3.0, 0.4);    
+    // desenhar_nuvem(5.0, 2.5, 1.5, 0.8);    
+    // desenhar_nuvem(-5.0, 3.0, 2.0, 0.6);
+
+    // Desenha o modelo
     desenharModelo();   
     glutSwapBuffers();
 }
@@ -169,18 +249,43 @@ void reshape(int w, int h) {
 }
 
 void specialKeys(int key, int x, int y) {
+    float angulo = 2*PI/180;
+    
     switch (key) {
-        case GLUT_KEY_LEFT :
-            posCameraX -= 0.1;
+        // case GLUT_KEY_LEFT :
+        //     posCameraX -= 0.1;
+        //     break;
+        // case GLUT_KEY_RIGHT :
+        //     posCameraX += 0.1;
+        //     break;
+        case GLUT_KEY_LEFT : 
+            posCameraX =  posCameraX*cos(-angulo) + posCameraZ*sin(-angulo);
+            posCameraZ = -posCameraX*sin(-angulo) + posCameraZ*cos(-angulo);
             break;
-        case GLUT_KEY_RIGHT :
-            posCameraX += 0.1;
-            break;
+       case GLUT_KEY_RIGHT : 
+            posCameraX =  posCameraX*cos(angulo) + posCameraZ*sin(angulo);
+            posCameraZ = -posCameraX*sin(angulo) + posCameraZ*cos(angulo);                      
+            break;         
         case GLUT_KEY_UP :
             posCameraZ -= 0.1;
             break;
         case GLUT_KEY_DOWN :
             posCameraZ += 0.1;
+            break;
+        case GLUT_KEY_PAGE_UP :
+            posCameraY += 0.1;
+            break;
+        case GLUT_KEY_PAGE_DOWN :
+            posCameraY -= 0.1;
+            break;
+        case GLUT_KEY_F1 :
+            cameraX += 0.1;
+            break;
+        case GLUT_KEY_F2 :
+            cameraY -= 0.1;
+            break;
+        case GLUT_KEY_F3 :
+            cameraZ += 0.1;
             break;
     }
     glutPostRedisplay();
