@@ -5,8 +5,9 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
-#include<iostream>
-#include<fstream>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <cassert>
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
@@ -16,6 +17,46 @@
 const double PI = 3.14159265358979323846;
 float posCameraX = -0.141169, posCameraY = 5.2, posCameraZ = -5.80667; // Posição inicial da câmera
 GLfloat luz_pontual[] = { -5.0, 5.0, -5.0, 1.0 }; // Posição inicial do sol
+
+std::vector<std::vector<int>> altitudes;
+
+void lerPGM(const std::string& arquivo, std::vector<std::vector<int>>& altitudes) {
+    std::ifstream in(arquivo, std::ios::binary);
+    std::string header;
+    int largura, altura, maxval;
+    in >> header >> largura >> altura >> maxval;
+    altitudes.resize(altura, std::vector<int>(largura));
+
+    in.ignore();
+    for (int i = 0; i < altura; ++i) {
+        for (int j = 0; j < largura; ++j) {
+            altitudes[i][j] = in.get();
+        }
+    }
+}
+
+void desenhar_terreno(const std::vector<std::vector<int>>& altitudes) {
+    int altura = altitudes.size();
+    int largura = altitudes[0].size();
+    float fatorEscala = 5.0;
+    glColor3f(0.0, 1.0, 0.0); // Define a cor como verde
+
+    // Calcula o ponto central
+    float centroX = largura / 2.0f;
+    float centroZ = altura / 2.0f;
+
+    for (int i = 0; i < altura - 1; ++i) {
+        glBegin(GL_TRIANGLE_STRIP);
+        for (int j = 0; j < largura; ++j) {
+            // Ajusta as coordenadas para centralizar o terreno
+            float x = i - centroX;
+            float z = j - centroZ;
+            glVertex3f(x, altitudes[i][j] / 255.0 * fatorEscala, z);
+            glVertex3f(x + 1, altitudes[i + 1][j] / 255.0 * fatorEscala, z);
+        }
+        glEnd();
+    }
+}
 
 
 void desenhar_plano() {
@@ -184,6 +225,10 @@ void init(void) {
     GLfloat luz_ambiente[] = { 1.0, 1.0, 1.0, 1.0 }; // Luz ambiente branca
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luz_ambiente);
 
+    // Configura a luz difusa para verde
+    GLfloat luz_difusa[] = {0.0, 1.0, 0.0, 1.0}; // Luz difusa verde
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, luz_difusa);
+
     // Ativa teste de profundidade
     glEnable(GL_DEPTH_TEST);
     glShadeModel(GL_SMOOTH);
@@ -222,7 +267,7 @@ void display(void) {
     desenhar_sol();
 
     // Desenha o plano verde
-    desenhar_plano();
+    //desenhar_plano();
 
     // Desenha nuvens
     // desenhar_nuvem(-2.0, 2.0, 1.0, 0.5);  
@@ -234,6 +279,21 @@ void display(void) {
 
     // Desenha o modelo
     desenharModelo();   
+
+    // Colorir o terreno
+    GLfloat cor_terreno[] = {0.0, 1.0, 0.0, 1.0}; // Cor verde
+    glMaterialfv(GL_FRONT, GL_AMBIENT, cor_terreno);
+
+
+    // Desenha o terreno
+    desenhar_terreno(altitudes);
+
+    // Colocando a cor do terreno de volta para branco
+    GLfloat cor_padrao[] = {1.0, 1.0, 1.0, 1.0}; // Cor branca
+    glMaterialfv(GL_FRONT, GL_AMBIENT, cor_padrao);
+
+
+    // Troca o buffer da tela
     glutSwapBuffers();
 }
 
@@ -252,12 +312,6 @@ void specialKeys(int key, int x, int y) {
     float angulo = 2*PI/180;
     
     switch (key) {
-        // case GLUT_KEY_LEFT :
-        //     posCameraX -= 0.1;
-        //     break;
-        // case GLUT_KEY_RIGHT :
-        //     posCameraX += 0.1;
-        //     break;
         case GLUT_KEY_LEFT : 
             posCameraX =  posCameraX*cos(-angulo) + posCameraZ*sin(-angulo);
             posCameraZ = -posCameraX*sin(-angulo) + posCameraZ*cos(-angulo);
@@ -293,6 +347,8 @@ void specialKeys(int key, int x, int y) {
 
 int main(int argc, char** argv) {
     carregarModelo("001bd4b5.obj");
+    
+    lerPGM("terrain.pgm", altitudes);
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(500, 500);
