@@ -41,16 +41,21 @@ const float alturaCamera = 3.5f;  // Altura da câmera em relação ao carrinho
 std::vector<std::vector<int>> altitudes;
 
 void lerPGM(const std::string& arquivo, std::vector<std::vector<int>>& altitudes) {
-    std::ifstream in(arquivo, std::ios::binary);
+    std::ifstream in(arquivo); // Abre o arquivo no modo padrão, que é texto
     std::string header;
     int largura, altura, maxval;
-    in >> header >> largura >> altura >> maxval;
+    in >> header;
+    if (header != "P2") {
+        throw std::runtime_error("Formato de arquivo não suportado ou arquivo não é P2 PGM.");
+    }
+    in >> largura >> altura >> maxval;
     altitudes.resize(altura, std::vector<int>(largura));
 
-    in.ignore();
     for (int i = 0; i < altura; ++i) {
         for (int j = 0; j < largura; ++j) {
-            altitudes[i][j] = in.get();
+            int valorPixel;
+            in >> valorPixel; // Lê cada valor de pixel como um inteiro
+            altitudes[i][j] = valorPixel;
         }
     }
 }
@@ -58,10 +63,9 @@ void lerPGM(const std::string& arquivo, std::vector<std::vector<int>>& altitudes
 void desenhar_terreno(const std::vector<std::vector<int>>& altitudes) {
     int altura = altitudes.size();
     int largura = altitudes[0].size();
-    float fatorEscala = 3.0;
-    glColor3f(0.0, 1.0, 0.0); // Define a cor como verde
+    float fatorEscala = 10.0f; // Ajuste o fator de escala conforme necessário
 
-    // Calcula o ponto central do mapa
+    // Calcula o ponto central do mapa para centralizar o terreno
     float centroX = largura / 2.0f;
     float centroZ = altura / 2.0f;
 
@@ -71,13 +75,40 @@ void desenhar_terreno(const std::vector<std::vector<int>>& altitudes) {
             // Ajusta as coordenadas para centralizar o terreno
             float x = i - centroX;
             float z = j - centroZ;
+
+            // Define a cor com base no valor do pixel
+            switch (altitudes[i][j]) {
+                case 110:
+                    glDisable(GL_LIGHTING); // Desativa a iluminação para o pixel específico
+                    glColor3f(1.0, 1.0, 0.0); // Amarelo
+                    break;
+                case 112:
+                    glDisable(GL_LIGHTING); // Desativa a iluminação para o pixel específico
+                    glColor3f(0.0, 0.0, 0.0); // Preto
+                    break;
+                case 114:
+                    glDisable(GL_LIGHTING); // Desativa a iluminação para o pixel específico
+                    glColor3f(1.0, 1.0, 1.0); // Branco
+                    break;
+                default:
+                    glEnable(GL_LIGHTING); // Garante que a iluminação está ativada para outros valores
+                    glColor3f(0.0, 1.0, 0.0); // Outros valores como verde
+                    break;
+            }
+
             glNormal3f(0.0, 1.0, 0.0); // Define a normal do terreno
+            // Utiliza o valor do pixel para a altura, mantendo a lógica original
             glVertex3f(x, altitudes[i][j] / 255.0 * fatorEscala, z);
             glVertex3f(x + 1, altitudes[i + 1][j] / 255.0 * fatorEscala, z);
+
+            if (altitudes[i][j] == 110 || altitudes[i][j] == 112 || altitudes[i][j] == 114) {
+                glEnable(GL_LIGHTING); // Reativa a iluminação após desenhar o pixel específico
+            }
         }
         glEnd();
     }
 }
+
 
 
 void desenhar_plano() {
@@ -251,14 +282,46 @@ bool acelerando = false; // Indica se o carrinho está acelerando
 bool desacelerando = false; // Indica se o carrinho está desacelerando
 
 void atualizarPosicaoCarrinho(float deltaTime) {
-    if (acelerando){
-        velocidadeCarrinhoX += sin(anguloCarrinho * PI / 180.0f) * aceleracaoCarrinho;
-        velocidadeCarrinhoZ += cos(anguloCarrinho * PI / 180.0f) * aceleracaoCarrinho;
+    // Verifica se está acelerando ou desacelerando e aplica a aceleração correspondente
+    if (acelerando) {
+        velocidadeCarrinhoX += sin(anguloCarrinho * PI / 180.0f) * aceleracaoCarrinho * deltaTime;
+        velocidadeCarrinhoZ += cos(anguloCarrinho * PI / 180.0f) * aceleracaoCarrinho * deltaTime;
+    } else if (desacelerando) {
+        // Para dar ré, a aceleração negativa é aplicada na direção oposta
+        velocidadeCarrinhoX -= sin(anguloCarrinho * PI / 180.0f) * aceleracaoCarrinho * deltaTime;
+        velocidadeCarrinhoZ -= cos(anguloCarrinho * PI / 180.0f) * aceleracaoCarrinho * deltaTime;
     }
-    if (desacelerando) {
-        velocidadeCarrinhoX -= sin(anguloCarrinho * PI / 180.0f) * desaceleracao;
-        velocidadeCarrinhoZ -= cos(anguloCarrinho * PI / 180.0f) * desaceleracao;
+    
+    // Calcula a velocidade atual sem usar a raiz quadrada para manter o sinal
+    float velocidadeAtualX = velocidadeCarrinhoX;
+    float velocidadeAtualZ = velocidadeCarrinhoZ;
+
+    // Aplica desaceleração natural se não estiver acelerando ou desacelerando
+    if (!acelerando && !desacelerando) {
+        float desacel = desaceleracao * deltaTime;
+        if (abs(velocidadeAtualX) > desacel) {
+            velocidadeCarrinhoX -= desacel * (velocidadeAtualX > 0 ? 1 : -1);
+        } else {
+            velocidadeCarrinhoX = 0;
+        }
+        if (abs(velocidadeAtualZ) > desacel) {
+            velocidadeCarrinhoZ -= desacel * (velocidadeAtualZ > 0 ? 1 : -1);
+        } else {
+            velocidadeCarrinhoZ = 0;
+        }
     }
+
+    // Limita a velocidade para não exceder a velocidade máxima, considerando a direção
+    if (abs(velocidadeCarrinhoX) > velocidadeMaxima) {
+        velocidadeCarrinhoX = velocidadeMaxima * (velocidadeCarrinhoX > 0 ? 1 : -1);
+    }
+    if (abs(velocidadeCarrinhoZ) > velocidadeMaxima) {
+        velocidadeCarrinhoZ = velocidadeMaxima * (velocidadeCarrinhoZ > 0 ? 1 : -1);
+    }
+
+    // Atualiza posição
+    posCarrinhoX += velocidadeCarrinhoX * deltaTime;
+    posCarrinhoZ += velocidadeCarrinhoZ * deltaTime;
 }
 
 
@@ -295,7 +358,7 @@ void init(void) {
     // Configura posição da luz pontual do sol
     glLightfv(GL_LIGHT1, GL_POSITION, luz_pontual);
     // Diminui a atenuação da luz, para que a luz do sol seja constante
-    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.5);
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.7);
     glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.0);
     glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0);
 
