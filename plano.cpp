@@ -15,8 +15,8 @@
 #include "stb_image.h"
 
 const double PI = 3.14159265358979323846;
-float posCameraX = -0.141169, posCameraY = 5.2, posCameraZ = -5.80667; // Posição inicial da câmera
-GLfloat luz_pontual[] = { -5.0, 5.0, -5.0, 1.0 }; // Posição inicial do sol
+float posCameraX = -0.141169, posCameraY = 5.6, posCameraZ = -9.70667; // Posição inicial da câmera
+GLfloat luz_pontual[] = { -10, 12.6, 51.1484, 1.0 }; // Posição inicial do sol
 
 std::vector<std::vector<int>> altitudes;
 
@@ -38,7 +38,7 @@ void lerPGM(const std::string& arquivo, std::vector<std::vector<int>>& altitudes
 void desenhar_terreno(const std::vector<std::vector<int>>& altitudes) {
     int altura = altitudes.size();
     int largura = altitudes[0].size();
-    float fatorEscala = 5.0;
+    float fatorEscala = 1.0;
     glColor3f(0.0, 1.0, 0.0); // Define a cor como verde
 
     // Calcula o ponto central
@@ -51,6 +51,7 @@ void desenhar_terreno(const std::vector<std::vector<int>>& altitudes) {
             // Ajusta as coordenadas para centralizar o terreno
             float x = i - centroX;
             float z = j - centroZ;
+            glNormal3f(0.0, 1.0, 0.0); // Define a normal do terreno
             glVertex3f(x, altitudes[i][j] / 255.0 * fatorEscala, z);
             glVertex3f(x + 1, altitudes[i + 1][j] / 255.0 * fatorEscala, z);
         }
@@ -75,12 +76,14 @@ void desenhar_plano() {
 }
 
 void desenhar_sol(){
-    glDisable(GL_LIGHTING);
     glPushMatrix();
     glTranslatef(luz_pontual[0], luz_pontual[1], luz_pontual[2]); 
 
+    // Desativa a iluminação para desenhar o sol
+    glDisable(GL_LIGHTING);
+
     // Configurando a cor amarela para a luz pontual
-    GLfloat cor_luz[] = {1.0, 1.0, 0.0, 1.0}; // Cor amarela
+    GLfloat cor_luz[] = {1.0, 1.0, 0.3, 1.0}; // Cor amarela
     GLfloat posicao_luz[] = {luz_pontual[0], luz_pontual[1], luz_pontual[2], 1.0}; // Posição do sol
 
     // Configurando a luz pontual
@@ -90,17 +93,19 @@ void desenhar_sol(){
 
     // Desenha o sol como uma esfera amarela
     glColor3f(1.0, 1.0, 0.0); 
-    glutSolidSphere(1.0, 50, 50); 
+    glutSolidSphere(3.0, 50, 50); 
     glEnable(GL_LIGHTING);
     glPopMatrix();
 }
 
 
 void desenhar_nuvem(float x, float y, float z, float raio) {
-    glDisable(GL_LIGHTING); // Desativa a iluminação para desenhar as nuvens
     glColor3f(1.0, 1.0, 1.0); // Cor branca para as nuvens
     glPushMatrix();
     glTranslatef(x, y, z);
+
+    // Desativa a iluminação para desenhar as nuvens
+    glDisable(GL_LIGHTING);
 
     // Desenhar círculos para formar a nuvem
     for (int i = 0; i < 8; ++i) {
@@ -110,9 +115,8 @@ void desenhar_nuvem(float x, float y, float z, float raio) {
         glutSolidSphere(raio, 30, 30);
         glPopMatrix();
     }
-
+    glEnable(GL_LIGHTING);
     glPopMatrix();
-    glEnable(GL_LIGHTING); // Reativa a iluminação após desenhar as nuvens
 }
 
 
@@ -182,17 +186,25 @@ void desenharModelo() {
             for (size_t v = 0; v < 3; v++) {
                 tinyobj::index_t idx = g_shapes[s].mesh.indices[3*f+v];
                 
-                // Aplica coordenadas de textura se disponíveis
-                if (attrib.texcoords.size() > 2 * idx.texcoord_index + 1) {
-                    float tx = attrib.texcoords[2*idx.texcoord_index+0];
-                    float ty = attrib.texcoords[2*idx.texcoord_index+1];
+                // Extrai e aplica a normal para o vértice, se disponível
+                if (idx.normal_index >= 0) {
+                    float nx = attrib.normals[3 * idx.normal_index + 0];
+                    float ny = attrib.normals[3 * idx.normal_index + 1];
+                    float nz = attrib.normals[3 * idx.normal_index + 2];
+                    glNormal3f(nx, ny, nz);
+                }
+
+                // Aplica coordenadas de textura, se disponíveis
+                if (idx.texcoord_index >= 0) {
+                    float tx = attrib.texcoords[2 * idx.texcoord_index + 0];
+                    float ty = attrib.texcoords[2 * idx.texcoord_index + 1];
                     glTexCoord2f(tx, 1-ty); // OpenGL inverte a direção Y da textura
                 }
 
                 // Extrai e aplica a posição dos vértices
-                float vx = attrib.vertices[3*idx.vertex_index+0];
-                float vy = attrib.vertices[3*idx.vertex_index+1];
-                float vz = attrib.vertices[3*idx.vertex_index+2];
+                float vx = attrib.vertices[3 * idx.vertex_index + 0];
+                float vy = attrib.vertices[3 * idx.vertex_index + 1];
+                float vz = attrib.vertices[3 * idx.vertex_index + 2];
                 glVertex3f(vx, vy, vz);
             }
         }
@@ -215,19 +227,20 @@ void init(void) {
 
     // Configura iluminação
     glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
+    //glEnable(GL_LIGHT0);
     glEnable(GL_LIGHT1);
 
-    // Configura posição da luz pontual
+    // Configura posição da luz pontual do sol
     glLightfv(GL_LIGHT1, GL_POSITION, luz_pontual);
+    // Diminui a atenuação da luz, para que a luz do sol seja constante
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.5);
+    glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.0);
+    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0);
+
 
     // Configura a cor do ambiente para branco
-    GLfloat luz_ambiente[] = { 1.0, 1.0, 1.0, 1.0 }; // Luz ambiente branca
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luz_ambiente);
-
-    // Configura a luz difusa para verde
-    GLfloat luz_difusa[] = {0.0, 1.0, 0.0, 1.0}; // Luz difusa verde
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, luz_difusa);
+    GLfloat luz_ambiente[] = { 0.5, 0.5, 0.5, 0.5 }; // Luz ambiente branca
+    //glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luz_ambiente);
 
     // Ativa teste de profundidade
     glEnable(GL_DEPTH_TEST);
@@ -238,7 +251,7 @@ void init(void) {
     float upY = 1;
     float upZ = 0.0;
     float cameraX = 0.0;
-    float cameraY = 0.9;
+    float cameraY = 3;
     float cameraZ = 1.2;
 
 
@@ -270,12 +283,16 @@ void display(void) {
     //desenhar_plano();
 
     // Desenha nuvens
-    // desenhar_nuvem(-2.0, 2.0, 1.0, 0.5);  
-    // desenhar_nuvem(3.0, 2.5, 2.0, 0.6);    
-    // desenhar_nuvem(-4.0, 3.0, 0.5, 0.7);   
-    // desenhar_nuvem(1.0, 1.0, 3.0, 0.4);    
-    // desenhar_nuvem(5.0, 2.5, 1.5, 0.8);    
-    // desenhar_nuvem(-5.0, 3.0, 2.0, 0.6);
+    desenhar_nuvem(-8, 10, 40, 2.0);
+    desenhar_nuvem(-12, 11, 45, 1.5);
+    desenhar_nuvem(10, 18, 50, 3.5);
+    desenhar_nuvem(25, 10, 80, 4.0);
+    desenhar_nuvem(-40, 15, 30, 4.0);
+    desenhar_nuvem(35, 15, 35, 3.5);
+    desenhar_nuvem(-20, 15, -20, 3.0);
+    desenhar_nuvem(25, 15, -25, 3.5);
+    desenhar_nuvem(-30, 20, 50, 3.5);
+    desenhar_nuvem(30, 20, 45, 3.0);
 
     // Desenha o modelo
     desenharModelo();   
@@ -288,9 +305,7 @@ void display(void) {
     // Desenha o terreno
     desenhar_terreno(altitudes);
 
-    // Colocando a cor do terreno de volta para branco
-    GLfloat cor_padrao[] = {1.0, 1.0, 1.0, 1.0}; // Cor branca
-    glMaterialfv(GL_FRONT, GL_AMBIENT, cor_padrao);
+    
 
 
     // Troca o buffer da tela
@@ -301,7 +316,7 @@ void display(void) {
 void reshape(int w, int h) {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0, (GLfloat) w / (GLfloat) h, 0.1, 100.0);
+    gluPerspective(60.0, (GLfloat) w / (GLfloat) h, 0.1, 500.0);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
