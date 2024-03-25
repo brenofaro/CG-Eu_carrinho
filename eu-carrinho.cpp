@@ -19,11 +19,16 @@ const double PI = 3.14159265358979323846;
 float posCameraX = -0.141169, posCameraY = 5.6, posCameraZ = -9.70667; // Posição inicial da câmera
 GLfloat luz_pontual[] = { -10, 12.6, 51.1484, 1.0 }; // Posição inicial do sol
 
-// Constantes para movimento do carrinho
+// Constantes e variáveis para o movimento do carrinho
 float posCarrinhoX = 0.0, posCarrinhoZ = 0.0; // Posição inicial do carrinho
 float alturaCarrinho = 0.0; // Altura inicial do carrinho
 float anguloCarrinho = 0.0; // Ângulo inicial do carrinho
 float velocidadeCarrinhoX = 0.0f, velocidadeCarrinhoZ = 0.0f; // Velocidade inicial do carrinho
+float aceleracaoCarrinho = 0.5f; // Taxa de aceleração do carrinho
+const float desaceleracao = 0.05f; // Taxa de desaceleração do carrinho
+const float velocidadeMaxima = 5.0f; // Velocidade máxima do carrinho
+bool acelerando = false; // Indica se o carrinho está acelerando
+bool desacelerando = false; // Indica se o carrinho está desacelerando
 
 
 // Variaveis debug camera
@@ -37,8 +42,57 @@ float cameraZ = 1.2;
 const float distanciaAtras = 7.5f; // Distância atrás do carrinho
 const float alturaCamera = 3.5f;  // Altura da câmera em relação ao carrinho
 
+// Textura
+GLuint texturaID; 
 
+// Altitudes do terreno
 std::vector<std::vector<int>> altitudes;
+
+// Variáveis do modelo 3D
+tinyobj::attrib_t attrib;
+std::vector<tinyobj::shape_t> g_shapes;
+
+GLuint carregarTextura(const char* arquivo) {
+    GLuint texturaID;
+    glGenTextures(1, &texturaID);
+    glBindTexture(GL_TEXTURE_2D, texturaID);
+
+    // Configura parâmetros da textura
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    int largura, altura, nrCanais;
+    unsigned char* data = stbi_load(arquivo, &largura, &altura, &nrCanais, 0);
+    if (data) {
+        GLenum formato = GL_RGB;
+        if (nrCanais == 4)
+            formato = GL_RGBA;
+
+        glTexImage2D(GL_TEXTURE_2D, 0, formato, largura, altura, 0, formato, GL_UNSIGNED_BYTE, data);
+        
+    } else {
+        std::cerr << "Falha ao carregar a textura" << std::endl;
+    }
+    stbi_image_free(data);
+
+    return texturaID;
+}
+
+bool carregarModelo(const std::string& inputfile) {
+    std::vector<tinyobj::material_t> materials;
+    std::string err;
+
+    // Carrega o modelo
+    bool ret = tinyobj::LoadObj(&attrib, &g_shapes, &materials, &err, inputfile.c_str(), NULL, true);
+    
+    if (!err.empty()) {
+        std::cerr << err << std::endl;
+    }
+
+    return ret;
+}
 
 void lerPGM(const std::string& arquivo, std::vector<std::vector<int>>& altitudes) {
     std::ifstream in(arquivo); // Abre o arquivo no modo padrão, que é texto
@@ -147,53 +201,6 @@ void desenhar_nuvem(float x, float y, float z, float raio) {
 }
 
 
-// Textura
-GLuint texturaID; 
-GLuint carregarTextura(const char* arquivo) {
-    GLuint texturaID;
-    glGenTextures(1, &texturaID);
-    glBindTexture(GL_TEXTURE_2D, texturaID);
-
-    // Configura parâmetros da textura
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    int largura, altura, nrCanais;
-    unsigned char* data = stbi_load(arquivo, &largura, &altura, &nrCanais, 0);
-    if (data) {
-        GLenum formato = GL_RGB;
-        if (nrCanais == 4)
-            formato = GL_RGBA;
-
-        glTexImage2D(GL_TEXTURE_2D, 0, formato, largura, altura, 0, formato, GL_UNSIGNED_BYTE, data);
-        
-    } else {
-        std::cerr << "Falha ao carregar a textura" << std::endl;
-    }
-    stbi_image_free(data);
-
-    return texturaID;
-}
-
-tinyobj::attrib_t attrib;
-std::vector<tinyobj::shape_t> g_shapes;
-
-
-bool carregarModelo(const std::string& inputfile) {
-    std::vector<tinyobj::material_t> materials;
-    std::string err;
-
-    // Carrega o modelo
-    bool ret = tinyobj::LoadObj(&attrib, &g_shapes, &materials, &err, inputfile.c_str(), NULL, true);
-    
-    if (!err.empty()) {
-        std::cerr << err << std::endl;
-    }
-
-    return ret;
-}
 
 void desenharModelo() {
     glEnable(GL_TEXTURE_2D); // Habilita o uso de texturas
@@ -250,12 +257,6 @@ void desenharModelo() {
     glBindTexture(GL_TEXTURE_2D, 0); // Desvincula a textura
     glDisable(GL_TEXTURE_2D); // Desabilita o uso de texturas
 }
-
-float aceleracaoCarrinho = 0.5f; // Taxa de aceleração do carrinho
-const float desaceleracao = 0.05f; // Taxa de desaceleração do carrinho
-const float velocidadeMaxima = 5.0f; // Velocidade máxima do carrinho
-bool acelerando = false; // Indica se o carrinho está acelerando
-bool desacelerando = false; // Indica se o carrinho está desacelerando
 
 void atualizarPosicaoCarrinho(float deltaTime) {
     // Verifica se está acelerando ou desacelerando e aplica a aceleração correspondente
@@ -319,6 +320,22 @@ void atualizaCamera(float deltaTime) {
     cameraY = alturaCarrinho;
 }
 
+// Função para atualizar o carrinho e a camera mesmo quando não há eventos
+void atualizaOcioso(void) {
+
+    // calculo deltaTime
+    static int lastTime = glutGet(GLUT_ELAPSED_TIME);
+    int currentTime = glutGet(GLUT_ELAPSED_TIME);
+    float deltaTime = (currentTime - lastTime) / 1000.0f; // Tempo em segundos
+    lastTime = currentTime;
+
+    atualizarPosicaoCarrinho(deltaTime);
+    atualizaCamera(deltaTime);
+
+    // Força a tela a ser redesenhada
+    glutPostRedisplay();
+}
+
 
 void init(void) {
     glClearColor(0.7, 0.9, 1.0, 1.0); // Cor de fundo azul claro
@@ -338,10 +355,9 @@ void init(void) {
     glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.0);
     glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0);
 
-
     // Configura a cor do ambiente para branco
     GLfloat luz_ambiente[] = { 0.5, 0.5, 0.5, 0.5 }; // Luz ambiente branca
-    //glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luz_ambiente);
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luz_ambiente);
 
     // Ativa teste de profundidade
     glEnable(GL_DEPTH_TEST);
@@ -370,24 +386,17 @@ void display(void) {
 
     // Define a posição da câmera
     gluLookAt(posCameraX, posCameraY, posCameraZ, cameraX, cameraY, cameraZ, upX, upY, upZ);
-    // Parametros look at
-    // eyeX, eyeY, eyeZ: posição da câmera
-    // centerX, centerY, centerZ: ponto para onde a câmera está olhando
-    // upX, upY, upZ: vetor que indica a direção para cima
-    // Debug Camera
-
-    std::cout << "posCameraX: " << posCameraX << " posCameraY: " << posCameraY << " posCameraZ: " << posCameraZ << std::endl;
-    std::cout << "cameraX: " << cameraX << " cameraY: " << cameraY << " cameraZ: " << cameraZ << std::endl;
-    std::cout << "upX: " << upX << " upY: " << upY << " upZ: " << upZ << std::endl;
-
-    // Debug carrinho
-    std::cout << "posCarrinhoX: " << posCarrinhoX << " posCarrinhoZ: " << posCarrinhoZ << std::endl;
-    std::cout << "velocidadeCarrinhoX: " << velocidadeCarrinhoX << " velocidadeCarrinhoZ: " << velocidadeCarrinhoZ << std::endl;
-    std::cout << "anguloCarrinho: " << anguloCarrinho << std::endl;
-    std::cout << "aceleracaoCarrinho: " << aceleracaoCarrinho << std::endl;
-
     
+    // Debug Camera Terminal
+    // std::cout << "posCameraX: " << posCameraX << " posCameraY: " << posCameraY << " posCameraZ: " << posCameraZ << std::endl;
+    // std::cout << "cameraX: " << cameraX << " cameraY: " << cameraY << " cameraZ: " << cameraZ << std::endl;
+    // std::cout << "upX: " << upX << " upY: " << upY << " upZ: " << upZ << std::endl;
 
+    // // Debug carrinho
+    // std::cout << "posCarrinhoX: " << posCarrinhoX << " posCarrinhoZ: " << posCarrinhoZ << std::endl;
+    // std::cout << "velocidadeCarrinhoX: " << velocidadeCarrinhoX << " velocidadeCarrinhoZ: " << velocidadeCarrinhoZ << std::endl;
+    // std::cout << "anguloCarrinho: " << anguloCarrinho << std::endl;
+    // std::cout << "aceleracaoCarrinho: " << aceleracaoCarrinho << std::endl;
 
     // Desenha o sol
     desenhar_sol();
@@ -452,22 +461,6 @@ void specialKeys(int key, int x, int y) {
 
     switch (key) {
 
-    // controles antigos da camera
-    //     case GLUT_KEY_LEFT : 
-    //         posCameraX =  posCameraX*cos(-angulo) + posCameraZ*sin(-angulo);
-    //         posCameraZ = -posCameraX*sin(-angulo) + posCameraZ*cos(-angulo);
-    //         break;
-    //    case GLUT_KEY_RIGHT : 
-    //         posCameraX =  posCameraX*cos(angulo) + posCameraZ*sin(angulo);
-    //         posCameraZ = -posCameraX*sin(angulo) + posCameraZ*cos(angulo);                      
-    //         break;         
-    //     case GLUT_KEY_UP :
-    //         posCameraZ -= 0.1;
-    //         break;
-    //     case GLUT_KEY_DOWN :
-    //         posCameraZ += 0.1;
-    //         break;
-
     // Controles do carrinho
         // Controles do carrinho
         case GLUT_KEY_LEFT: 
@@ -482,21 +475,6 @@ void specialKeys(int key, int x, int y) {
         case GLUT_KEY_DOWN:
             desacelerando = true;
             break;
-        case GLUT_KEY_PAGE_UP :
-            posCameraY += 0.1;
-            break;
-        case GLUT_KEY_PAGE_DOWN :
-            posCameraY -= 0.1;
-            break;
-        case GLUT_KEY_F1 :
-            cameraX += 0.1;
-            break;
-        case GLUT_KEY_F2 :
-            cameraY -= 0.1;
-            break;
-        case GLUT_KEY_F3 :
-            cameraZ += 0.1;
-            break;
     }
 
     velocidadeCarrinhoX = sin(anguloCarrinho * PI / 180.0f) * velocidadeAtual;
@@ -506,22 +484,6 @@ void specialKeys(int key, int x, int y) {
     if (anguloCarrinho >= 360.0f) anguloCarrinho -= 360.0f;
     if (anguloCarrinho < 0.0f) anguloCarrinho += 360.0f;
 
-    glutPostRedisplay();
-}
-
-// Função para atualizar o carrinho e a camera mesmo quando não há eventos
-void atualizaOcioso(void) {
-
-    // calculo deltaTime
-    static int lastTime = glutGet(GLUT_ELAPSED_TIME);
-    int currentTime = glutGet(GLUT_ELAPSED_TIME);
-    float deltaTime = (currentTime - lastTime) / 1000.0f; // Tempo em segundos
-    lastTime = currentTime;
-
-    atualizarPosicaoCarrinho(deltaTime);
-    atualizaCamera(deltaTime);
-
-    // Força a tela a ser redesenhada
     glutPostRedisplay();
 }
 
