@@ -76,34 +76,10 @@ void desenhar_terreno(const std::vector<std::vector<int>>& altitudes) {
             float x = i - centroX;
             float z = j - centroZ;
 
-            // Define a cor com base no valor do pixel
-            switch (altitudes[i][j]) {
-                case 110:
-                    glDisable(GL_LIGHTING); // Desativa a iluminação para o pixel específico
-                    glColor3f(1.0, 1.0, 0.0); // Amarelo
-                    break;
-                case 112:
-                    glDisable(GL_LIGHTING); // Desativa a iluminação para o pixel específico
-                    glColor3f(0.0, 0.0, 0.0); // Preto
-                    break;
-                case 114:
-                    glDisable(GL_LIGHTING); // Desativa a iluminação para o pixel específico
-                    glColor3f(1.0, 1.0, 1.0); // Branco
-                    break;
-                default:
-                    glEnable(GL_LIGHTING); // Garante que a iluminação está ativada para outros valores
-                    glColor3f(0.0, 1.0, 0.0); // Outros valores como verde
-                    break;
-            }
-
             glNormal3f(0.0, 1.0, 0.0); // Define a normal do terreno
-            // Utiliza o valor do pixel para a altura, mantendo a lógica original
             glVertex3f(x, altitudes[i][j] / 255.0 * fatorEscala, z);
             glVertex3f(x + 1, altitudes[i + 1][j] / 255.0 * fatorEscala, z);
 
-            if (altitudes[i][j] == 110 || altitudes[i][j] == 112 || altitudes[i][j] == 114) {
-                glEnable(GL_LIGHTING); // Reativa a iluminação após desenhar o pixel específico
-            }
         }
         glEnd();
     }
