@@ -1,0 +1,29 @@
+# Material file for maquina-misterio.obj
+
+newmtl tesmmachinemat
+	Ns 38
+	d 1
+	illum 2
+	Kd 0.8 0.8 0.8
+	Ks 0.0 0.0 0.0
+	Ka 0.0 0.0 0.0
+	map_Kd tesmmachine
+
+newmtl stefxwave01mat
+	Ns 12
+	d 1
+	illum 2
+	Kd 0.8 0.8 0.8
+	Ks 0.0 0.0 0.0
+	Ka 1.0 1.0 1.0
+	map_Kd stefxwave01
+
+newmtl mbxvanshadmat
+	Ns 38
+	d 1
+	illum 2
+	Kd 0.8 0.8 0.8
+	Ks 0.0 0.0 0.0
+	Ka 0.0 0.0 0.0
+	map_Kd mbxvanshad
+
