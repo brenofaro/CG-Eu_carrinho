@@ -24,9 +24,9 @@ float posCarrinhoX = 0.0, posCarrinhoZ = 0.0; // Posição inicial do carrinho
 float alturaCarrinho = 0.0; // Altura inicial do carrinho
 float anguloCarrinho = 0.0; // Ângulo inicial do carrinho
 float velocidadeCarrinhoX = 0.0f, velocidadeCarrinhoZ = 0.0f; // Velocidade inicial do carrinho
-float aceleracaoCarrinho = 0.5f; // Taxa de aceleração do carrinho
+float aceleracaoCarrinho = 1.0f; // Taxa de aceleração do carrinho
 const float desaceleracao = 0.05f; // Taxa de desaceleração do carrinho
-const float velocidadeMaxima = 5.0f; // Velocidade máxima do carrinho
+const float velocidadeMaxima = 10.0f; // Velocidade máxima do carrinho
 bool acelerando = false; // Indica se o carrinho está acelerando
 bool desacelerando = false; // Indica se o carrinho está desacelerando
 
@@ -257,6 +257,76 @@ void desenharModelo() {
     glBindTexture(GL_TEXTURE_2D, 0); // Desvincula a textura
     glDisable(GL_TEXTURE_2D); // Desabilita o uso de texturas
 }
+bool debug = false;
+
+void correcaoAlturaCarrinho() {
+    if (!debug) {
+        int altura = altitudes.size();
+        int largura = altitudes[0].size();
+        
+        // Calcula o ponto central do mapa para centralizar o terreno
+        float centroX = largura / 2.0f;
+        float centroZ = altura / 2.0f;
+
+        // Ajusta as coordenadas para centralizar o terreno
+        float x = posCarrinhoX + centroX;
+        float z = posCarrinhoZ + centroZ;
+
+        // A altura do terreno na posição atual do carrinho
+        float alturaTerreno = (altitudes[(int)x][(int)z] * 10) / 255.0f;
+
+        // Fator de interpolação para suavizar a transição de altura
+        float fatorInterpolacao = 0.1f; // Ajuste esse valor conforme necessário
+         std::cout << "Altura do mapa no local atual = " << altitudes[(int)x][(int)z] << "Altura do carrinho = " << alturaCarrinho << std::endl;
+        // Interpola suavemente a altura do carrinho para a altura do terreno
+        alturaCarrinho += (alturaTerreno - alturaCarrinho) * fatorInterpolacao;
+    }
+}
+
+
+void pararCarrinho(){
+    velocidadeCarrinhoX = 0.0f;
+    velocidadeCarrinhoZ = 0.0f;
+    acelerando = false;
+    desacelerando = false;
+}
+
+void correcaoLimitesMapa(){
+    int altura = altitudes.size();
+    int largura = altitudes[0].size();
+    int margem = 12;
+    
+    // Calcula o ponto central do mapa para centralizar o terreno
+    float centroX = largura / 2.0f;
+    float centroZ = altura / 2.0f;
+
+    // Ajusta as coordenadas para centralizar o terreno
+    float x = posCarrinhoX + centroX;
+    float z = posCarrinhoZ + centroZ;
+
+    //std::cout << " x = " << x << " z = " << z;
+
+    // Verifica se o carrinho está dentro dos limites do terreno
+    if (x > altura - margem) {
+        posCarrinhoX -= 5;
+        pararCarrinho();
+    }
+    if (x < 0){
+        posCarrinhoX += 5;
+        pararCarrinho();
+    }
+    if (z > largura - margem)
+    {
+        posCarrinhoZ -= 5;
+        pararCarrinho();
+    }
+    if (z < 0)
+    {
+        posCarrinhoZ += 5;
+        pararCarrinho();
+    }
+    return;
+}
 
 void atualizarPosicaoCarrinho(float deltaTime) {
     // Verifica se está acelerando ou desacelerando e aplica a aceleração correspondente
@@ -295,7 +365,8 @@ void atualizarPosicaoCarrinho(float deltaTime) {
     if (abs(velocidadeCarrinhoZ) > velocidadeMaxima) {
         velocidadeCarrinhoZ = velocidadeMaxima * (velocidadeCarrinhoZ > 0 ? 1 : -1);
     }
-
+    correcaoLimitesMapa();
+    correcaoAlturaCarrinho();
     // Atualiza posição
     posCarrinhoX += velocidadeCarrinhoX * deltaTime;
     posCarrinhoZ += velocidadeCarrinhoZ * deltaTime;
@@ -392,8 +463,8 @@ void display(void) {
     // std::cout << "cameraX: " << cameraX << " cameraY: " << cameraY << " cameraZ: " << cameraZ << std::endl;
     // std::cout << "upX: " << upX << " upY: " << upY << " upZ: " << upZ << std::endl;
 
-    // // Debug carrinho
-    // std::cout << "posCarrinhoX: " << posCarrinhoX << " posCarrinhoZ: " << posCarrinhoZ << std::endl;
+    // Debug carrinho
+    std::cout << "posCarrinhoX: " << posCarrinhoX << " posCarrinhoZ: " << posCarrinhoZ << std::endl;
     // std::cout << "velocidadeCarrinhoX: " << velocidadeCarrinhoX << " velocidadeCarrinhoZ: " << velocidadeCarrinhoZ << std::endl;
     // std::cout << "anguloCarrinho: " << anguloCarrinho << std::endl;
     // std::cout << "aceleracaoCarrinho: " << aceleracaoCarrinho << std::endl;
@@ -474,6 +545,17 @@ void specialKeys(int key, int x, int y) {
             break;
         case GLUT_KEY_DOWN:
             desacelerando = true;
+            break;
+        case GLUT_KEY_PAGE_DOWN:
+            alturaCarrinho --;
+            debug = true;
+            break;
+        case GLUT_KEY_PAGE_UP:
+            alturaCarrinho ++;
+            debug = true;
+            break;
+        case GLUT_KEY_F1:
+            debug = !debug;
             break;
     }
 
