@@ -44,6 +44,8 @@ const float alturaCamera = 3.5f;  // Altura da câmera em relação ao carrinho
 
 // Textura
 GLuint texturaID; 
+GLuint texturaSolID;
+GLuint texturaNuvemID;
 
 // Altitudes do terreno
 std::vector<std::vector<int>> altitudes;
@@ -156,49 +158,70 @@ void desenhar_plano() {
     glEnd();
 }
 
+
+
 void desenhar_sol(){
     glPushMatrix();
     glTranslatef(luz_pontual[0], luz_pontual[1], luz_pontual[2]); 
-
+    GLint texturaSolID = carregarTextura("textures/popup_far_sun_surface_default.png");
+    // Inicializa o objeto quadric
+    GLUquadricObj *quad = gluNewQuadric();
     // Desativa a iluminação para desenhar o sol
     glDisable(GL_LIGHTING);
 
-    // Configurando a cor amarela para a luz pontual
-    GLfloat cor_luz[] = {1.0, 1.0, 0.3, 1.0}; // Cor amarela
-    GLfloat posicao_luz[] = {luz_pontual[0], luz_pontual[1], luz_pontual[2], 1.0}; // Posição do sol
+    // Aplica a textura no sol
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texturaSolID);
 
-    // Configurando a luz pontual
-    glLightfv(GL_LIGHT1, GL_DIFFUSE, cor_luz);
-    glLightfv(GL_LIGHT1, GL_POSITION, posicao_luz);
-    glEnable(GL_LIGHT1);
+    // Desativa a cor do material para que apenas a textura seja exibida
+    glColor3f(1.0, 1.0, 1.0);
 
-    // Desenha o sol como uma esfera amarela
-    glColor3f(1.0, 1.0, 0.0); 
-    glutSolidSphere(3.0, 50, 50); 
+    // Desenha o sol como uma esfera com a textura aplicada
+    const float radius = 3.0;
+    const int slices = 50;
+    const int stacks = 50;
+    gluQuadricTexture(quad, GL_TRUE);
+    gluSphere(quad, radius, slices, stacks);
+
+    glDisable(GL_TEXTURE_2D);
     glEnable(GL_LIGHTING);
     glPopMatrix();
 }
 
 
+
 void desenhar_nuvem(float x, float y, float z, float raio) {
-    glColor3f(1.0, 1.0, 1.0); // Cor branca para as nuvens
     glPushMatrix();
     glTranslatef(x, y, z);
 
     // Desativa a iluminação para desenhar as nuvens
     glDisable(GL_LIGHTING);
+    GLUquadricObj *quad = gluNewQuadric();
+    GLuint texturaNuvemID = carregarTextura("textures/cloud5.png");
+    // Aplica a textura na nuvem
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texturaNuvemID);
 
-    // Desenhar círculos para formar a nuvem
+    // Desenha a nuvem como esferas compostas com a textura aplicada
+    glColor3f(1.0, 1.0, 1.0); 
+    gluQuadricTexture(quad, GL_TRUE);
+
     for (int i = 0; i < 8; ++i) {
         glPushMatrix();
         glRotatef(45.0f * i, 0.0f, 1.0f, 0.0f);
         glTranslatef(raio * 0.5f, 0.0f, 0.0f);
-        glutSolidSphere(raio, 30, 30);
+        gluSphere(quad, raio, 30, 30);
         glPopMatrix();
     }
+
+    glDisable(GL_TEXTURE_2D);
     glEnable(GL_LIGHTING);
+
     glPopMatrix();
 }
+
+
+
 
 
 
@@ -405,13 +428,14 @@ void display(void) {
     //desenhar_plano();
 
     // Desenha nuvens
-    desenhar_nuvem(-8, 10, 40, 2.0);
-    desenhar_nuvem(-12, 11, 45, 1.5);
-    desenhar_nuvem(10, 18, 50, 3.5);
-    desenhar_nuvem(25, 10, 80, 4.0);
-    desenhar_nuvem(-40, 15, 30, 4.0);
-    desenhar_nuvem(35, 15, 35, 3.5);
-    desenhar_nuvem(-20, 15, -20, 3.0);
+    
+    //desenhar_nuvem(-8, 10, 40, 2.0);
+    //desenhar_nuvem(-12, 11, 45, 1.5);
+    //desenhar_nuvem(10, 18, 50, 3.5);
+    //desenhar_nuvem(25, 10, 80, 4.0);
+    //desenhar_nuvem(-40, 15, 30, 4.0);
+    //desenhar_nuvem(35, 15, 35, 3.5);
+   // desenhar_nuvem(-20, 15, -20, 3.0);
     desenhar_nuvem(25, 15, -25, 3.5);
     desenhar_nuvem(-30, 20, 50, 3.5);
     desenhar_nuvem(30, 20, 45, 3.0);
