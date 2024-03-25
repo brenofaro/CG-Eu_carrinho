@@ -251,7 +251,7 @@ void desenharModelo() {
     glDisable(GL_TEXTURE_2D); // Desabilita o uso de texturas
 }
 
-float aceleracaoCarrinho = 0.2f; // Taxa de aceleração do carrinho
+float aceleracaoCarrinho = 0.5f; // Taxa de aceleração do carrinho
 const float desaceleracao = 0.05f; // Taxa de desaceleração do carrinho
 const float velocidadeMaxima = 5.0f; // Velocidade máxima do carrinho
 bool acelerando = false; // Indica se o carrinho está acelerando
