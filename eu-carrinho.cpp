@@ -17,16 +17,16 @@
 
 const double PI = 3.14159265358979323846;
 float posCameraX = -0.141169, posCameraY = 5.6, posCameraZ = -9.70667; // Posição inicial da câmera
-GLfloat luz_pontual[] = { -10, 12.6, 51.1484, 1.0 }; // Posição inicial do sol
+GLfloat luz_pontual[] = { -10, 20.6, 80.1484, 1.0 }; // Posição inicial do sol
 
 // Constantes e variáveis para o movimento do carrinho
 float posCarrinhoX = 0.0, posCarrinhoZ = 0.0; // Posição inicial do carrinho
 float alturaCarrinho = 0.0; // Altura inicial do carrinho
 float anguloCarrinho = 0.0; // Ângulo inicial do carrinho
 float velocidadeCarrinhoX = 0.0f, velocidadeCarrinhoZ = 0.0f; // Velocidade inicial do carrinho
-float aceleracaoCarrinho = 1.0f; // Taxa de aceleração do carrinho
+float aceleracaoCarrinho = 0.7f; // Taxa de aceleração do carrinho
 const float desaceleracao = 0.05f; // Taxa de desaceleração do carrinho
-const float velocidadeMaxima = 10.0f; // Velocidade máxima do carrinho
+const float velocidadeMaxima = 7.0f; // Velocidade máxima do carrinho
 bool acelerando = false; // Indica se o carrinho está acelerando
 bool desacelerando = false; // Indica se o carrinho está desacelerando
 
@@ -161,9 +161,16 @@ void desenhar_plano() {
 
 
 void desenhar_sol(){
+
     glPushMatrix();
-    glTranslatef(luz_pontual[0], luz_pontual[1], luz_pontual[2]); 
-    GLint texturaSolID = carregarTextura("textures/popup_far_sun_surface_default.png");
+    // Configuração da luz que simula o sol
+    GLfloat cor_luz[] = {1.0, 1.0, 0.3, 1.0}; // Cor amarela para o sol
+    GLfloat posicao_luz[] = {luz_pontual[0], luz_pontual[1], luz_pontual[2], 1.0};
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, cor_luz);
+    glLightfv(GL_LIGHT1, GL_POSITION, posicao_luz);
+
+    glTranslatef(luz_pontual[0], luz_pontual[1], luz_pontual[2]);
+
     // Inicializa o objeto quadric
     GLUquadricObj *quad = gluNewQuadric();
     // Desativa a iluminação para desenhar o sol
@@ -197,7 +204,6 @@ void desenhar_nuvem(float x, float y, float z, float raio) {
     // Desativa a iluminação para desenhar as nuvens
     glDisable(GL_LIGHTING);
     GLUquadricObj *quad = gluNewQuadric();
-    GLuint texturaNuvemID = carregarTextura("textures/cloud5.png");
     // Aplica a textura na nuvem
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, texturaNuvemID);
@@ -300,7 +306,7 @@ void correcaoAlturaCarrinho() {
 
         // Fator de interpolação para suavizar a transição de altura
         float fatorInterpolacao = 0.1f; // Ajuste esse valor conforme necessário
-         std::cout << "Altura do mapa no local atual = " << altitudes[(int)x][(int)z] << "Altura do carrinho = " << alturaCarrinho << std::endl;
+        //std::cout << "Altura do mapa no local atual = " << altitudes[(int)x][(int)z] << "Altura do carrinho = " << alturaCarrinho << std::endl;
         // Interpola suavemente a altura do carrinho para a altura do terreno
         alturaCarrinho += (alturaTerreno - alturaCarrinho) * fatorInterpolacao;
     }
@@ -437,20 +443,23 @@ void init(void) {
     // Carrega a textura
     texturaID = carregarTextura("textures/maquina-misterio.png");
 
+    texturaSolID = carregarTextura("textures/popup_far_sun_surface_default.png");
+
+    texturaNuvemID = carregarTextura("textures/cloud5.png");
+
+
     // Configura iluminação
     glEnable(GL_LIGHTING);
     //glEnable(GL_LIGHT0);
     glEnable(GL_LIGHT1);
 
-    // Configura posição da luz pontual do sol
-    glLightfv(GL_LIGHT1, GL_POSITION, luz_pontual);
     // Diminui a atenuação da luz, para que a luz do sol seja constante
-    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.7);
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.5);
     glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.0);
     glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0);
 
     // Configura a cor do ambiente para branco
-    GLfloat luz_ambiente[] = { 0.5, 0.5, 0.5, 0.5 }; // Luz ambiente branca
+    GLfloat luz_ambiente[] = { 0.3, 0.3, 0.3, 0.3 }; // Luz ambiente branca
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luz_ambiente);
 
     // Ativa teste de profundidade
@@ -478,28 +487,18 @@ void display(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
+    
+
+
     // Define a posição da câmera
     gluLookAt(posCameraX, posCameraY, posCameraZ, cameraX, cameraY, cameraZ, upX, upY, upZ);
-    
-    // Debug Camera Terminal
-    // std::cout << "posCameraX: " << posCameraX << " posCameraY: " << posCameraY << " posCameraZ: " << posCameraZ << std::endl;
-    // std::cout << "cameraX: " << cameraX << " cameraY: " << cameraY << " cameraZ: " << cameraZ << std::endl;
-    // std::cout << "upX: " << upX << " upY: " << upY << " upZ: " << upZ << std::endl;
 
-    // Debug carrinho
-    std::cout << "posCarrinhoX: " << posCarrinhoX << " posCarrinhoZ: " << posCarrinhoZ << std::endl;
-    // std::cout << "velocidadeCarrinhoX: " << velocidadeCarrinhoX << " velocidadeCarrinhoZ: " << velocidadeCarrinhoZ << std::endl;
-    // std::cout << "anguloCarrinho: " << anguloCarrinho << std::endl;
-    // std::cout << "aceleracaoCarrinho: " << aceleracaoCarrinho << std::endl;
+    //std::cout << "posCarrinhoX: " << posCarrinhoX << " posCarrinhoZ: " << posCarrinhoZ << std::endl;
 
     // Desenha o sol
     desenhar_sol();
 
-    // Desenha o plano verde
-    //desenhar_plano();
-
     // Desenha nuvens
-    
     //desenhar_nuvem(-8, 10, 40, 2.0);
     //desenhar_nuvem(-12, 11, 45, 1.5);
     //desenhar_nuvem(10, 18, 50, 3.5);
