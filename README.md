@@ -12,7 +12,7 @@
 
 #### Windows:
 1. **Instalação do MinGW:**
-   - Baixe o MinGW em: sourceforge.net/projects/mingw-w64/
+   - Baixe o MinGW em: [SourceForge](https://sourceforge.net/projects/mingw-w64/)
    - Siga as opções de instalação conforme as imagens de configuração.
    
    ![alt text](images/image.png)
