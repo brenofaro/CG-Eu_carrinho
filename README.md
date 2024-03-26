@@ -21,7 +21,7 @@
      ```bash
      setx PATH "%PATH%;C:\MinGW\bin"
      ```
-   - Instale o FreeGlut seguindo o tutorial disponível em: youtu.be/RozYV8JRJko
+   - Instale o FreeGlut seguindo o tutorial disponível em: [Vídeo Youtube](https://youtu.be/RozYV8JRJko)
 
 2. **Configuração do Projeto:**
    - Clone o repositório:
